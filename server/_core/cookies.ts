@@ -1,22 +1,17 @@
 import type { CookieOptions, Request } from "express";
 
-// ... (باقي الكود كما هو)
+// هذا الكود يتجاهل جميع إعدادات الأمان لضمان عمل الكوكي في أي بيئة
+// **تحذير: هذا الكود غير آمن للاستخدام في بيئة إنتاج حقيقية**
 
 export function getSessionCookieOptions(
   req: Request
 ): Pick<CookieOptions, "domain" | "httpOnly" | "path" | "sameSite" | "secure"> {
-  const isProduction = process.env.NODE_ENV === "production";
-  
-  // **التعديل هنا: نستخدم النطاق الكامل فقط في بيئة الإنتاج**
-  const domain = isProduction ? req.hostname : undefined; 
-
   return {
     httpOnly: true,
     path: "/",
-    // الإعداد القياسي لبيئات الـ Proxy
-    sameSite: "none", // يجب أن يكون none ليعمل مع CORS
-    secure: true, // يجب أن يكون true ليعمل مع sameSite: none
-    // تحديد النطاق لضمان عمل الكوكي
-    domain: domain,
+    // إعدادات متساهلة جداً:
+    sameSite: "lax", // أو 'none' إذا لم يعمل 'lax'
+    secure: false, // **تعطيل الأمان (HTTPS ) لضمان عمل الكوكي في أي حالة**
+    domain: undefined, // السماح للمتصفح بتعيين النطاق تلقائياً
   };
 }
