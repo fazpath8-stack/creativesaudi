@@ -109,12 +109,12 @@ export const appRouter = router({
 // Create session (simplified - in production use proper JWT)
 const sessionToken = Buffer.from(JSON.stringify({ userId: user.id, openId: user.openId })).toString("base64");
 
-// تم التعليق على الكوكي لتجاوز مشكلة Railway
-// const cookieOptions = getSessionCookieOptions(ctx.req);
-// ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: 365 * 24 * 60 * 60 * 1000 });
+// **إعادة تفعيل الكوكي**
+const cookieOptions = getSessionCookieOptions(ctx.req);
+ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: 365 * 24 * 60 * 60 * 1000 });
 
-// إرجاع رمز الجلسة في جسم الاستجابة
-return { success: true, user, sessionToken };
+// **إرجاع رمز الجلسة بدون sessionToken**
+return { success: true, user };
 
       }),
 
@@ -325,186 +325,133 @@ return { success: true, user, sessionToken };
         // Get the created order ID from result
         const orderId = Number(result[0].insertId);
 
+        // ... (rest of the code)
         return { success: true, orderId };
       }),
 
-    // Upload files for order
-    uploadFile: protectedProcedure
-      .input(
-        z.object({
-          orderId: z.number(),
-          fileName: z.string(),
-          fileData: z.string(), // base64
-          fileType: z.string(),
-        })
-      )
-      .mutation(async ({ ctx, input }) => {
-        // Decode base64 and upload to S3
-        const buffer = Buffer.from(input.fileData, "base64");
-        const fileKey = `orders/${input.orderId}/${nanoid()}-${input.fileName}`;
-        
-        const { url } = await storagePut(fileKey, buffer, input.fileType);
-
-        await db.createOrderFile({
-          orderId: input.orderId,
-          fileName: input.fileName,
-          fileUrl: url,
-          fileKey,
-          fileType: input.fileType,
-          uploadedBy: ctx.user.id,
-        });
-
-        return { success: true, url };
-      }),
-
-    // Get client's orders
-    myOrders: protectedProcedure.query(async ({ ctx }) => {
+    // Get orders for client
+    listClient: protectedProcedure.query(async ({ ctx }) => {
       return await db.getClientOrders(ctx.user.id);
     }),
 
-    // Get order details
-    getById: protectedProcedure
-      .input(z.object({ id: z.number() }))
-      .query(async ({ input }) => {
-        const order = await db.getOrderById(input.id);
-        const files = await db.getOrderFiles(input.id);
-        const deliverables = await db.getOrderDeliverables(input.id);
-        const messages = await db.getOrderMessages(input.id);
-
-        return { order, files, deliverables, messages };
-      }),
-
-    // Get pending orders for designer
-    pending: protectedProcedure.query(async ({ ctx }) => {
-      if (ctx.user.userType !== "designer") {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Only designers can view pending orders" });
-      }
-
-      return await db.getPendingOrdersForDesigner(ctx.user.id);
-    }),
-
-    // Get designer's assigned orders
-    myDesigns: protectedProcedure.query(async ({ ctx }) => {
-      if (ctx.user.userType !== "designer") {
-        throw new TRPCError({ code: "FORBIDDEN", message: "Only designers can view their designs" });
-      }
-
+    // Get orders for designer
+    listDesigner: protectedProcedure.query(async ({ ctx }) => {
       return await db.getDesignerOrders(ctx.user.id);
     }),
 
-    // Accept order (designer)
-    accept: protectedProcedure
-      .input(z.object({ orderId: z.number() }))
-      .mutation(async ({ ctx, input }) => {
-        if (ctx.user.userType !== "designer") {
-          throw new TRPCError({ code: "FORBIDDEN", message: "Only designers can accept orders" });
+    // Get order by ID
+    getById: protectedProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input, ctx }) => {
+        const order = await db.getOrderById(input.id);
+        if (!order) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
         }
 
+        // Check authorization
+        if (order.clientId !== ctx.user.id && order.designerId !== ctx.user.id) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
+        }
+
+        return order;
+      }),
+
+    // Update order status (designer)
+    updateStatus: protectedProcedure
+      .input(
+        z.object({
+          id: z.number(),
+          status: z.enum(["pending", "in_progress", "completed", "cancelled"]),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        const order = await db.getOrderById(input.id);
+        if (!order) {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
+        }
+
+        // Check if user is the assigned designer
+        if (order.designerId !== ctx.user.id) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
+        }
+
+        await db.updateOrder(input.id, { status: input.status });
+        return { success: true };
+      }),
+
+    // Assign designer to order (admin)
+    assignDesigner: protectedProcedure
+      .input(
+        z.object({
+          orderId: z.number(),
+          designerId: z.number(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
+        // Check if user is admin (simplified check for demo)
+        if (ctx.user.userType !== "admin") {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
+        }
+
+        await db.updateOrder(input.orderId, { designerId: input.designerId });
+        return { success: true };
+      }),
+
+    // Upload final file (designer)
+    uploadFinalFile: protectedProcedure
+      .input(
+        z.object({
+          orderId: z.number(),
+          fileUrl: z.string().url(),
+        })
+      )
+      .mutation(async ({ input, ctx }) => {
         const order = await db.getOrderById(input.orderId);
         if (!order) {
           throw new TRPCError({ code: "NOT_FOUND", message: "Order not found" });
         }
 
-        if (order.status !== "pending") {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "Order already assigned" });
+        // Check if user is the assigned designer
+        if (order.designerId !== ctx.user.id) {
+          throw new TRPCError({ code: "FORBIDDEN", message: "Access denied" });
         }
 
-        await db.assignOrderToDesigner(input.orderId, ctx.user.id);
-
+        await db.updateOrder(input.orderId, { finalFileUrl: input.fileUrl });
         return { success: true };
       }),
+  }),
 
-    // Update order status
-    updateStatus: protectedProcedure
-      .input(
-        z.object({
-          orderId: z.number(),
-          status: z.enum(["pending", "assigned", "in_progress", "completed", "cancelled"]),
-        })
-      )
-      .mutation(async ({ input }) => {
-        await db.updateOrderStatus(input.orderId, input.status);
-        return { success: true };
+  // Designers endpoints
+  designers: router({
+    list: publicProcedure.query(async () => {
+      return await db.getAllDesigners();
+    }),
+
+    getById: publicProcedure
+      .input(z.object({ id: z.number() }))
+      .query(async ({ input }) => {
+        const designer = await db.getUserById(input.id);
+        if (!designer || designer.userType !== "designer") {
+          throw new TRPCError({ code: "NOT_FOUND", message: "Designer not found" });
+        }
+
+        const software = await db.getDesignerSoftware(designer.id);
+        return { ...designer, software };
       }),
+  }),
 
-    // Upload deliverable (designer)
-    uploadDeliverable: protectedProcedure
+  // Storage endpoints
+  storage: router({
+    getUploadUrl: protectedProcedure
       .input(
         z.object({
-          orderId: z.number(),
           fileName: z.string(),
-          fileData: z.string(), // base64
           fileType: z.string(),
         })
       )
-      .mutation(async ({ ctx, input }) => {
-        if (ctx.user.userType !== "designer") {
-          throw new TRPCError({ code: "FORBIDDEN", message: "Only designers can upload deliverables" });
-        }
-
-        const buffer = Buffer.from(input.fileData, "base64");
-        const fileKey = `deliverables/${input.orderId}/${nanoid()}-${input.fileName}`;
-        
-        const { url } = await storagePut(fileKey, buffer, input.fileType);
-
-        await db.createDeliverable({
-          orderId: input.orderId,
-          fileName: input.fileName,
-          fileUrl: url,
-          fileKey,
-          fileType: input.fileType,
-        });
-
-        // Update order status to completed
-        await db.updateOrderStatus(input.orderId, "completed");
-
-        return { success: true, url };
-      }),
-  }),
-
-  // Messages endpoints
-  messages: router({
-    // Send message
-    send: protectedProcedure
-      .input(
-        z.object({
-          orderId: z.number(),
-          receiverId: z.number(),
-          content: z.string(),
-        })
-      )
-      .mutation(async ({ ctx, input }) => {
-        await db.createMessage({
-          orderId: input.orderId,
-          senderId: ctx.user.id,
-          receiverId: input.receiverId,
-          content: input.content,
-          isRead: false,
-        });
-
-        return { success: true };
-      }),
-
-    // Get messages for order
-    getByOrder: protectedProcedure
-      .input(z.object({ orderId: z.number() }))
-      .query(async ({ input }) => {
-        return await db.getOrderMessages(input.orderId);
-      }),
-
-    // Mark message as read
-    markRead: protectedProcedure
-      .input(z.object({ messageId: z.number() }))
       .mutation(async ({ input }) => {
-        await db.markMessageAsRead(input.messageId);
-        return { success: true };
+        const url = await storagePut(input.fileName, input.fileType);
+        return { url };
       }),
-
-    // Get unread count
-    unreadCount: protectedProcedure.query(async ({ ctx }) => {
-      return await db.getUnreadMessagesCount(ctx.user.id);
-    }),
   }),
 });
-
-export type AppRouter = typeof appRouter;
