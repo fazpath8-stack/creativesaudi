@@ -27,13 +27,18 @@ function isSecureRequest(req: Request) {
 export function getSessionCookieOptions(
   req: Request
 ): Pick<CookieOptions, "domain" | "httpOnly" | "path" | "sameSite" | "secure"> {
+  const isRailway = req.hostname.endsWith(".up.railway.app" );
+  const domain = isRailway ? ".up.railway.app" : undefined;
+
   return {
     httpOnly: true,
     path: "/",
-    // الرجوع إلى none مع التأكد من secure
+    // الإعداد القياسي لبيئات الـ Proxy
     sameSite: "none",
-    // تعيين secure إلى true بشكل صريح
     secure: true,
+    // **السطر الجديد:** تحديد النطاق لضمان عمل الكوكي في النطاق الفرعي لـ Railway
+    domain: domain,
   };
 }
+
 
