@@ -14,14 +14,14 @@ export default function Login() {
   const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const utils = trpc.useUtils(); // <--- أضف هذا السطر
+  const utils = trpc.useUtils(); // <--- يجب إضافة هذا السطر
 
-   const loginMutation = trpc.auth.login.useMutation({
+  const loginMutation = trpc.auth.login.useMutation({
     onSuccess: (data) => {
       toast.success(t("common.success"));
       
       // Update the auth.me cache manually to avoid refetch
-      utils.auth.me.setData(undefined, data.user);
+      utils.auth.me.setData(undefined, data.user); // <--- يجب إضافة هذا السطر
       
       // Then redirect without page reload
       if (data.user.userType === "designer") {
@@ -34,7 +34,6 @@ export default function Login() {
       toast.error(error.message || t("common.error"));
     },
   });
-
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
