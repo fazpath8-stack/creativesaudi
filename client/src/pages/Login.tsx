@@ -25,7 +25,7 @@ export default function Login() {
         setLocation("/client/dashboard");
       }
       // Reload to update auth state
-      window.location.reload();
+      // window.location.reload(); // <--- هذا هو السطر الذي يجب إزالته أو التعليق عليه
     },
     onError: (error) => {
       toast.error(error.message || t("common.error"));
