@@ -1,137 +1,114 @@
 import { useState } from "react";
-import { useLocation } from "wouter";
-import { useLanguage } from "@/contexts/LanguageContext";
-import { trpc } from "@/lib/trpc";
+import { Link } from "wouter";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { z } from "zod";
+import { toast } from "sonner";
+import { useTranslation } from "react-i18next";
+
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { toast } from "sonner";
-import { Loader2 } from "lucide-react";
+import { trpc } from "@/lib/trpc";
+
+const loginSchema = z.object({
+  email: z.string().email(),
+  password: z.string().min(6),
+});
+
+type LoginFormData = z.infer<typeof loginSchema>;
 
 export default function Login() {
-  const [, setLocation] = useLocation();
-  const { t } = useLanguage();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  const { t } = useTranslation();
+  const [loading, setLoading] = useState(false);
   const utils = trpc.useUtils();
 
+  const {
+    register,
+    handleSubmit,
+    formState: { errors },
+  } = useForm<LoginFormData>({
+    resolver: zodResolver(loginSchema),
+  });
+
   const loginMutation = trpc.auth.login.useMutation({
-    onSuccess: (data) => { // **تم إزالة async**
+    onMutate: () => {
+      setLoading(true);
+    },
+    onSuccess: (data) => {
       toast.success(t("common.success"));
       
+      // **التعديل لحفظ الـ Token يدوياً**
+      // يجب أن يكون data من النوع الذي يحتوي على sessionToken
+      if (data && 'sessionToken' in data && data.sessionToken) {
+        localStorage.setItem("sessionToken", data.sessionToken);
+      }
+
       // Update the auth.me cache manually to avoid refetch
       utils.auth.me.setData(undefined, data.user);
       
-      // **تم إزالة سطر التأخير (delay)**
-      
       // Then redirect with full page reload
       if (data.user.userType === "designer") {
-      // ... (داخل دالة onSuccess)
-onSuccess: (data) => {
-  toast.success(t("common.success"));
-  
-  // **الخطوة الجديدة: حفظ الـ Token يدوياً**
-  if (data.sessionToken) {
-    localStorage.setItem("sessionToken", data.sessionToken); // أو sessionStorage
-  }
-
-  // Update the auth.me cache manually to avoid refetch
-  utils.auth.me.setData(undefined, data.user);
-  
-  // Then redirect with full page reload
-  if (data.user.userType === "designer") {
-    window.location.href = "/designer/dashboard";
-  } else {
-    window.location.href = "/client/dashboard";
-  }
-},
-// ...
-
-
+        window.location.href = "/designer/dashboard";
+      } else {
+        window.location.href = "/client/dashboard";
+      }
+    },
     onError: (error) => {
-      toast.error(error.message || t("common.error"));
+      toast.error(error.message);
+    },
+    onSettled: () => {
+      setLoading(false);
     },
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    loginMutation.mutate({ email, password });
+  const onSubmit = (data: LoginFormData) => {
+    loginMutation.mutate(data);
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-background via-background to-muted">
+    <div className="flex items-center justify-center min-h-screen bg-gray-50">
       <Card className="w-full max-w-md">
-        <CardHeader className="space-y-1">
-          <CardTitle className="text-2xl font-bold text-center bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-            {t("auth.login.title")}
-          </CardTitle>
-          <CardDescription className="text-center">
-            {t("landing.subtitle")}
-          </CardDescription>
+        <CardHeader>
+          <CardTitle className="text-2xl">{t("login.title")}</CardTitle>
+          <CardDescription>{t("login.description")}</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">{t("auth.email")}</Label>
+          <form onSubmit={handleSubmit(onSubmit)} className="grid gap-4">
+            <div className="grid gap-2">
+              <Label htmlFor="email">{t("login.email")}</Label>
               <Input
                 id="email"
                 type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                placeholder="m@example.com"
                 required
-                placeholder={t("auth.email")}
+                {...register("email")}
               />
+              {errors.email && <p className="text-sm text-red-500">{errors.email.message}</p>}
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">{t("auth.password")}</Label>
-              <Input
-                id="password"
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                required
-                placeholder={t("auth.password")}
-              />
+            <div className="grid gap-2">
+              <div className="flex items-center">
+                <Label htmlFor="password">{t("login.password")}</Label>
+                <Link
+                  href="/forgot-password"
+                  className="ml-auto inline-block text-sm underline"
+                >
+                  {t("login.forgot_password")}
+                </Link>
+              </div>
+              <Input id="password" type="password" required {...register("password")} />
+              {errors.password && <p className="text-sm text-red-500">{errors.password.message}</p>}
             </div>
-            <div className="flex justify-end">
-              <Button
-                type="button"
-                variant="link"
-                className="px-0 text-primary"
-                onClick={() => setLocation("/forgot-password")}
-              >
-                {t("auth.forgotPassword")}
-              </Button>
-            </div>
-            <Button
-              type="submit"
-              className="w-full"
-              disabled={loginMutation.isPending}
-            >
-              {loginMutation.isPending && (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              )}
-              {t("auth.submit")}
+            <Button type="submit" className="w-full" disabled={loading}>
+              {loading ? t("common.loading") : t("login.sign_in")}
             </Button>
           </form>
           <div className="mt-4 text-center text-sm">
-            {t("auth.noAccount")}{" "}
-            <Button
-              variant="link"
-              className="px-0 text-primary"
-              onClick={() => setLocation("/register")}
-            >
-              {t("auth.registerNow")}
-            </Button>
-          </div>
-          <div className="mt-4 text-center">
-            <Button
-              variant="outline"
-              onClick={() => setLocation("/")}
-            >
-              {t("common.back")}
-            </Button>
+            {t("login.no_account")}{" "}
+            <Link href="/register" className="underline">
+              {t("login.sign_up")}
+            </Link>
           </div>
         </CardContent>
       </Card>
