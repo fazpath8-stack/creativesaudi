@@ -40,23 +40,23 @@ queryClient.getMutationCache().subscribe(event => {
 
 const trpcClient = trpc.createClient({
   links: [
+    // ...
     httpBatchLink({
       url: "/api/trpc",
       transformer: superjson,
-     // حوالي السطر 46
-fetch(input, init) {
-  return globalThis.fetch(input, {
-    ...(init ?? {}),
-    credentials: "include",
-    // إرسال رمز الجلسة في Authorization Header
-    headers: {
-      Authorization: `Bearer ${localStorage.getItem("sessionToken")}`,
-    },
-  });
-},
+      fetch(input, init ) {
+        return globalThis.fetch(input, {
+          ...(init ?? {}),
+         // credentials: "include",
+          // هذا الجزء هو الذي يضيف Authorization Header
+          headers: {
+            Authorization: `Bearer ${localStorage.getItem("sessionToken")}`,
+          },
+        });
+      },
     }),
-  ],
-});
+// ...
+
 
 createRoot(document.getElementById("root")!).render(
   <trpc.Provider client={trpcClient} queryClient={queryClient}>
