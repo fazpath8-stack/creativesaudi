@@ -14,30 +14,24 @@ export default function Login() {
   const { t } = useLanguage();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const utils = trpc.useUtils(); // <--- يجب إضافة هذا السطر
+  const utils = trpc.useUtils();
 
   const loginMutation = trpc.auth.login.useMutation({
-        // حوالي السطر 20
-  onSuccess: async (data) => {
-    toast.success(t("common.success"));
-    
-    // Update the auth.me cache manually to avoid refetch
-    utils.auth.me.setData(undefined, data.user);
-    
-    // **السطر الجديد:** إضافة تأخير بسيط لضمان حفظ الكوكي قبل التوجيه
-    await new Promise(resolve => setTimeout(resolve, 100)); 
-    
-    // Then redirect without page reload
-        // Then redirect with full page reload
-    if (data.user.userType === "designer") {
-      window.location.href = "/designer/dashboard";
-    } else {
-      window.location.href = "/client/dashboard";
-    }
-
-  },
-
-
+    onSuccess: (data) => { // **تم إزالة async**
+      toast.success(t("common.success"));
+      
+      // Update the auth.me cache manually to avoid refetch
+      utils.auth.me.setData(undefined, data.user);
+      
+      // **تم إزالة سطر التأخير (delay)**
+      
+      // Then redirect with full page reload
+      if (data.user.userType === "designer") {
+        window.location.href = "/designer/dashboard";
+      } else {
+        window.location.href = "/client/dashboard";
+      }
+    },
 
     onError: (error) => {
       toast.error(error.message || t("common.error"));
