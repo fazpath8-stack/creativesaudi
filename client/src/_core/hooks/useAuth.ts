@@ -64,6 +64,7 @@ export function useAuth(options?: UseAuthOptions) {
     if (!redirectOnUnauthenticated) return;
     if (meQuery.isLoading || logoutMutation.isPending) return;
     if (state.user) return;
+    if (localStorage.getItem("manus-runtime-user-info") !== "null" && localStorage.getItem("manus-runtime-user-info") !== "undefined") return;
     if (typeof window === "undefined") return;
     if (window.location.pathname === redirectPath) return;
 
