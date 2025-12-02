@@ -17,22 +17,20 @@ export default function Login() {
   const utils = trpc.useUtils(); // <--- يجب إضافة هذا السطر
 
   const loginMutation = trpc.auth.login.useMutation({
-      onSuccess: async (data) => {
+        onSuccess: (data) => {
     toast.success(t("common.success"));
     
     // Update the auth.me cache manually to avoid refetch
     utils.auth.me.setData(undefined, data.user);
     
-    // **السطر الجديد:** إضافة تأخير بسيط لضمان حفظ الكوكي قبل التوجيه
-    await new Promise(resolve => setTimeout(resolve, 100)); 
-    
-    // Then redirect without page reload
+    // **السطر الجديد:** إعادة تحميل الصفحة بالكامل لضمان قراءة الكوكي
     if (data.user.userType === "designer") {
-      setLocation("/designer/dashboard");
+      window.location.href = "/designer/dashboard";
     } else {
-      setLocation("/client/dashboard");
+      window.location.href = "/client/dashboard";
     }
   },
+
 
     onError: (error) => {
       toast.error(error.message || t("common.error"));
