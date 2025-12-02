@@ -93,36 +93,35 @@ export const appRouter = router({
           password: z.string(),
         })
       )
-      .mutation(async ({ input, ctx }) => {
-        const user = await db.getUserByEmail(input.email);
-        
-        if (!user || !verifyPassword(input.password, user.password)) {
-          throw new TRPCError({
-            code: "UNAUTHORIZED",
-            message: "Invalid email or password",
-          });
-        }
+     .mutation(async ({ input, ctx }) => {
+  const user = await db.getUserByEmail(input.email);
+  
+  if (!user || !verifyPassword(input.password, user.password)) {
+    throw new TRPCError({
+      code: "UNAUTHORIZED",
+      message: "Invalid email or password",
+    });
+  }
 
-        // Update last signed in
-        await db.updateUser(user.id, { lastSignedIn: new Date() });
+  // Update last signed in
+  await db.updateUser(user.id, { lastSignedIn: new Date() });
 
-        // **التعديل النهائي: إنشاء رمز JWS حقيقي**
-        const secret = new TextEncoder().encode(process.env.JWT_SECRET || "fallback-secret-for-demo");
-        
-        const sessionToken = await new SignJWT({ userId: user.id, openId: user.openId })
-          .setProtectedHeader({ alg: "HS256" })
-          .setIssuedAt()
-          .setExpirationTime("24h") // ينتهي بعد 24 ساعة
-          .sign(secret);
+  // **الخطوة 1: إنشاء الـ Token (نستخدم Base64 البسيط)**
+  const sessionToken = Buffer.from(JSON.stringify({ userId: user.id, openId: user.openId })).toString("base64");
 
-        // **إعادة تفعيل الكوكي**
-        const cookieOptions = getSessionCookieOptions(ctx.req);
-        ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: 365 * 24 * 60 * 60 * 1000 });
+  // **الخطوة 2: تعطيل إرسال الكوكي بالكامل**
+  // const secret = new TextEncoder().encode(process.env.JWT_SECRET || "fallback-secret-for-demo");
+  // const sessionToken = await new SignJWT({ userId: user.id, openId: user.openId })
+  //   .setProtectedHeader({ alg: "HS256" })
+  //   .setIssuedAt()
+  //   .setExpirationTime("24h")
+  //   .sign(secret);
+  // const cookieOptions = getSessionCookieOptions(ctx.req);
+  // ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: 365 * 24 * 60 * 60 * 1000 });
 
-        // إرجاع المستخدم فقط
-        return { success: true, user };
-
-      }),
+  // **الخطوة 3: إرجاع المستخدم والـ Token في جسم الاستجابة**
+  return { success: true, user, sessionToken }; // **تم إضافة sessionToken هنا**
+}),
 
     // Request password reset
     requestPasswordReset: publicProcedure
