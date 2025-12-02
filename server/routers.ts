@@ -7,6 +7,7 @@ import * as db from "./db";
 import { nanoid } from "nanoid";
 import { storagePut } from "./storage";
 import { TRPCError } from "@trpc/server";
+import { SignJWT } from "jose"; // **تم إضافة هذا الاستيراد**
 
 // Helper to hash passwords (simple for demo - in production use bcrypt)
 function hashPassword(password: string): string {
@@ -105,18 +106,21 @@ export const appRouter = router({
         // Update last signed in
         await db.updateUser(user.id, { lastSignedIn: new Date() });
 
-// حوالي السطر 108
-// Create session (simplified - in production use proper JWT)
-const sessionToken = Buffer.from(JSON.stringify({ userId: user.id, openId: user.openId })).toString("base64");
+        // **التعديل النهائي: إنشاء رمز JWS حقيقي**
+        const secret = new TextEncoder().encode(process.env.JWT_SECRET || "fallback-secret-for-demo");
+        
+        const sessionToken = await new SignJWT({ userId: user.id, openId: user.openId })
+          .setProtectedHeader({ alg: "HS256" })
+          .setIssuedAt()
+          .setExpirationTime("24h") // ينتهي بعد 24 ساعة
+          .sign(secret);
 
-// **إعادة تفعيل الكوكي**
-const cookieOptions = getSessionCookieOptions(ctx.req);
-ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: 365 * 24 * 60 * 60 * 1000 });
+        // **إعادة تفعيل الكوكي**
+        const cookieOptions = getSessionCookieOptions(ctx.req);
+        ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: 365 * 24 * 60 * 60 * 1000 });
 
-// **إرجاع رمز الجلسة بدون sessionToken**
-// **إرجاع رمز الجلسة بدون sessionToken**
-return { success: true, user };
-
+        // إرجاع المستخدم فقط
+        return { success: true, user };
 
       }),
 
