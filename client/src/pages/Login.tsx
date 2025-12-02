@@ -27,11 +27,27 @@ export default function Login() {
       
       // Then redirect with full page reload
       if (data.user.userType === "designer") {
-        window.location.href = "/designer/dashboard";
-      } else {
-        window.location.href = "/client/dashboard";
-      }
-    },
+      // ... (داخل دالة onSuccess)
+onSuccess: (data) => {
+  toast.success(t("common.success"));
+  
+  // **الخطوة الجديدة: حفظ الـ Token يدوياً**
+  if (data.sessionToken) {
+    localStorage.setItem("sessionToken", data.sessionToken); // أو sessionStorage
+  }
+
+  // Update the auth.me cache manually to avoid refetch
+  utils.auth.me.setData(undefined, data.user);
+  
+  // Then redirect with full page reload
+  if (data.user.userType === "designer") {
+    window.location.href = "/designer/dashboard";
+  } else {
+    window.location.href = "/client/dashboard";
+  }
+},
+// ...
+
 
     onError: (error) => {
       toast.error(error.message || t("common.error"));
