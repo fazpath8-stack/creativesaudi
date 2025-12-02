@@ -31,7 +31,7 @@ export function getSessionCookieOptions(
     httpOnly: true,
     path: "/",
     // تغيير sameSite ليتوافق مع بيئات الـ Proxy مثل Railway
-    sameSite: req.hostname === "localhost" ? "lax" : "none",
+    sameSite: "lax",
     // تعيين secure إلى true بشكل صريح لأن Railway يستخدم HTTPS
     secure: true,
   };
