@@ -256,15 +256,26 @@ class SDKServer {
     } as GetUserInfoWithJwtResponse;
   }
 
-  async authenticateRequest(req: Request): Promise<User> {
-    // Regular authentication flow
-    const cookies = this.parseCookies(req.headers.cookie);
-    const sessionCookie = cookies.get(COOKIE_NAME);
-    const session = await this.verifySession(sessionCookie);
+  // حوالي السطر 259
+async authenticateRequest(req: Request): Promise<User> {
+  // Regular authentication flow
+  
+  // 1. محاولة استخراج رمز الجلسة من Authorization Header (LocalStorage)
+  const authHeader = req.headers.authorization;
+  const sessionToken = authHeader?.startsWith("Bearer ") ? authHeader.substring(7) : undefined;
 
-    if (!session) {
-      throw ForbiddenError("Invalid session cookie");
-    }
+  // 2. محاولة استخراج رمز الجلسة من الكوكي (كحل احتياطي)
+  const cookies = this.parseCookies(req.headers.cookie);
+  const sessionCookie = cookies.get(COOKIE_NAME);
+
+  // 3. التحقق من الجلسة باستخدام الرمز المستخرج من أي مصدر
+  const session = await this.verifySession(sessionToken || sessionCookie);
+
+  if (!session) {
+    throw ForbiddenError("Invalid session cookie");
+  }
+  // ... (باقي الكود)
+
 
     const sessionUserId = session.openId;
     const signedInAt = new Date();
