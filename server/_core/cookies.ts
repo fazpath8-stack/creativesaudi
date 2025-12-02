@@ -21,24 +21,25 @@ function isSecureRequest(req: Request) {
   return protoList.some(proto => proto.trim().toLowerCase() === "https");
 }
 
-// في ملف server/_core/cookies.ts
-// ... (باقي الكود في الأعلى يبقى كما هو)
-
 export function getSessionCookieOptions(
   req: Request
 ): Pick<CookieOptions, "domain" | "httpOnly" | "path" | "sameSite" | "secure"> {
-  const isRailway = req.hostname.endsWith(".up.railway.app" );
+  const isProduction = process.env.NODE_ENV === "production";
+  const isRailway = req.hostname.endsWith(".up.railway.app");
+  
+  // في بيئات الإنتاج (مثل Railway)، يجب تعيين domain لـ .up.railway.app
+  // لضمان أن الكوكي يعمل عبر النطاقات الفرعية (subdomains)
   const domain = isRailway ? ".up.railway.app" : undefined;
 
   return {
     httpOnly: true,
     path: "/",
-    // الإعداد القياسي لبيئات الـ Proxy
-    sameSite: "none",
-    secure: true,
-    // **السطر الجديد:** تحديد النطاق لضمان عمل الكوكي في النطاق الفرعي لـ Railway
+    // في بيئات الإنتاج (HTTPS)، يجب أن يكون sameSite: "none" و secure: true
+    // لضمان عمل الكوكي عبر النطاقات المختلفة (Frontend/Backend)
+    sameSite: isProduction ? "none" : "lax",
+    secure: isProduction || isSecureRequest(req),
+    // تحديد النطاق لضمان عمل الكوكي في النطاق الفرعي لـ Railway
     domain: domain,
   };
 }
-
 
