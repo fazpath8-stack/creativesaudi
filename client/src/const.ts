@@ -1,15 +1,17 @@
 export { COOKIE_NAME, ONE_YEAR_MS } from "@shared/const";
 
 // Generate login URL at runtime so redirect URI reflects the current origin.
+// في ملف client/src/const.ts
+// ...
+// Generate login URL at runtime so redirect URI reflects the current origin.
 export const getLoginUrl = () => {
-  const oauthPortalUrl = import.meta.env.VITE_OAUTH_PORTAL_URL;
-  
-  // هذا هو التعديل الذي يمنع الخطأ
-  if (!oauthPortalUrl) {
-    console.error("VITE_OAUTH_PORTAL_URL is not set. Using current origin as fallback.");
+  // إذا كان OAUTH_ENABLED غير موجود أو false، نستخدم مسار تسجيل الدخول المحلي
+  if (import.meta.env.VITE_OAUTH_ENABLED !== "true") {
     return `${window.location.origin}/login`;
   }
-  
+
+  // الكود الأصلي لـ OAuth
+  const oauthPortalUrl = import.meta.env.VITE_OAUTH_PORTAL_URL;
   const appId = import.meta.env.VITE_APP_ID;
   const redirectUri = `${window.location.origin}/api/oauth/callback`;
   const state = btoa(redirectUri);
@@ -21,4 +23,4 @@ export const getLoginUrl = () => {
   url.searchParams.set("type", "signIn");
 
   return url.toString();
-}
+};
