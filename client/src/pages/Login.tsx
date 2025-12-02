@@ -18,22 +18,23 @@ export default function Login() {
 
   const loginMutation = trpc.auth.login.useMutation({
         // حوالي السطر 20
-onSuccess: (data) => {
-  // حفظ رمز الجلسة في LocalStorage
-  localStorage.setItem("sessionToken", data.sessionToken);
-  
-  toast.success(t("common.success"));
-  
-  // Update the auth.me cache manually to avoid refetch
-  utils.auth.me.setData(undefined, data.user);
-  
-  // Then redirect without page reload
-  if (data.user.userType === "designer") {
-    setLocation("/designer/dashboard");
-  } else {
-    setLocation("/client/dashboard");
-  }
-},
+  onSuccess: async (data) => {
+    toast.success(t("common.success"));
+    
+    // Update the auth.me cache manually to avoid refetch
+    utils.auth.me.setData(undefined, data.user);
+    
+    // **السطر الجديد:** إضافة تأخير بسيط لضمان حفظ الكوكي قبل التوجيه
+    await new Promise(resolve => setTimeout(resolve, 100)); 
+    
+    // Then redirect without page reload
+    if (data.user.userType === "designer") {
+      setLocation("/designer/dashboard");
+    } else {
+      setLocation("/client/dashboard");
+    }
+  },
+,
 
 
     onError: (error) => {
