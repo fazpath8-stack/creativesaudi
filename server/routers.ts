@@ -105,13 +105,17 @@ export const appRouter = router({
         // Update last signed in
         await db.updateUser(user.id, { lastSignedIn: new Date() });
 
-        // Create session (simplified - in production use proper JWT)
-        const sessionToken = Buffer.from(JSON.stringify({ userId: user.id, openId: user.openId })).toString("base64");
-        
-        const cookieOptions = getSessionCookieOptions(ctx.req);
-        ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: 365 * 24 * 60 * 60 * 1000 });
+// حوالي السطر 108
+// Create session (simplified - in production use proper JWT)
+const sessionToken = Buffer.from(JSON.stringify({ userId: user.id, openId: user.openId })).toString("base64");
 
-        return { success: true, user };
+// تم التعليق على الكوكي لتجاوز مشكلة Railway
+// const cookieOptions = getSessionCookieOptions(ctx.req);
+// ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: 365 * 24 * 60 * 60 * 1000 });
+
+// إرجاع رمز الجلسة في جسم الاستجابة
+return { success: true, user, sessionToken };
+
       }),
 
     // Request password reset
