@@ -34,7 +34,7 @@ export default function Login() {
       setLocation("/client/dashboard");
     }
   },
-,
+
 
 
     onError: (error) => {
