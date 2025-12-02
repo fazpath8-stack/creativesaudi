@@ -43,12 +43,17 @@ const trpcClient = trpc.createClient({
     httpBatchLink({
       url: "/api/trpc",
       transformer: superjson,
-      fetch(input, init) {
-        return globalThis.fetch(input, {
-          ...(init ?? {}),
-          credentials: "include",
-        });
-      },
+     // حوالي السطر 46
+fetch(input, init) {
+  return globalThis.fetch(input, {
+    ...(init ?? {}),
+    credentials: "include",
+    // إرسال رمز الجلسة في Authorization Header
+    headers: {
+      Authorization: `Bearer ${localStorage.getItem("sessionToken")}`,
+    },
+  });
+},
     }),
   ],
 });
