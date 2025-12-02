@@ -21,28 +21,18 @@ function isSecureRequest(req: Request) {
   return protoList.some(proto => proto.trim().toLowerCase() === "https");
 }
 
+// في ملف server/_core/cookies.ts
+// ... (باقي الكود في الأعلى يبقى كما هو)
+
 export function getSessionCookieOptions(
   req: Request
 ): Pick<CookieOptions, "domain" | "httpOnly" | "path" | "sameSite" | "secure"> {
-  // const hostname = req.hostname;
-  // const shouldSetDomain =
-  //   hostname &&
-  //   !LOCAL_HOSTS.has(hostname) &&
-  //   !isIpAddress(hostname) &&
-  //   hostname !== "127.0.0.1" &&
-  //   hostname !== "::1";
-
-  // const domain =
-  //   shouldSetDomain && !hostname.startsWith(".")
-  //     ? `.${hostname}`
-  //     : shouldSetDomain
-  //       ? hostname
-  //       : undefined;
-
   return {
     httpOnly: true,
     path: "/",
-    sameSite: "none",
-    secure: isSecureRequest(req),
+    // تغيير sameSite ليتوافق مع بيئات الـ Proxy مثل Railway
+    sameSite: req.hostname === "localhost" ? "lax" : "none",
+    // تعيين secure إلى true بشكل صريح لأن Railway يستخدم HTTPS
+    secure: true,
   };
 }
