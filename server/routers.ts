@@ -114,7 +114,9 @@ const cookieOptions = getSessionCookieOptions(ctx.req);
 ctx.res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: 365 * 24 * 60 * 60 * 1000 });
 
 // **إرجاع رمز الجلسة بدون sessionToken**
+// **إرجاع رمز الجلسة بدون sessionToken**
 return { success: true, user };
+
 
       }),
 
