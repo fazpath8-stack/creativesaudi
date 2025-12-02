@@ -28,11 +28,13 @@ export default function Login() {
     await new Promise(resolve => setTimeout(resolve, 100)); 
     
     // Then redirect without page reload
+        // Then redirect with full page reload
     if (data.user.userType === "designer") {
-      setLocation("/designer/dashboard");
+      window.location.href = "/designer/dashboard";
     } else {
-      setLocation("/client/dashboard");
+      window.location.href = "/client/dashboard";
     }
+
   },
 
 
