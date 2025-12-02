@@ -9,7 +9,7 @@ import { getLoginUrl } from "./const";
 import "./index.css";
 import { LanguageProvider } from "./contexts/LanguageContext";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient( );
 
 const redirectToLoginIfUnauthorized = (error: unknown) => {
   if (!(error instanceof TRPCClientError)) return;
@@ -40,23 +40,26 @@ queryClient.getMutationCache().subscribe(event => {
 
 const trpcClient = trpc.createClient({
   links: [
-    // ...
     httpBatchLink({
       url: "/api/trpc",
       transformer: superjson,
       fetch(input, init ) {
+        // هذا هو الجزء المعدل ليرسل رمز الجلسة ويتجاهل الكوكي
+        const sessionToken = localStorage.getItem("sessionToken");
+        
         return globalThis.fetch(input, {
           ...(init ?? {}),
-         // credentials: "include",
-          // هذا الجزء هو الذي يضيف Authorization Header
+          // تم التعليق على credentials: "include" لتجنب تضارب الكوكي
+          // credentials: "include", 
           headers: {
-            Authorization: `Bearer ${localStorage.getItem("sessionToken")}`,
+            ...(init?.headers ?? {}),
+            Authorization: sessionToken ? `Bearer ${sessionToken}` : "",
           },
         });
       },
     }),
-// ...
-
+  ],
+});
 
 createRoot(document.getElementById("root")!).render(
   <trpc.Provider client={trpcClient} queryClient={queryClient}>
